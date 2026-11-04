@@ -180,6 +180,14 @@ async function showVerdict(sid, who) {
   requestAnimationFrame(() => requestAnimationFrame(() =>
     document.querySelectorAll("#bars .fill").forEach((f) => (f.style.width = f.dataset.w + "%"))));
   $("#reasons").innerHTML = v.reasons.map((r) => `<li>${esc(r)}</li>`).join("");
+  // Show the session's own last puzzle and answer. A bot can finish all puzzles before the page's
+  // first progress check, which would otherwise leave the previous player's puzzle on screen.
+  if (rows.length) {
+    const last = rows[rows.length - 1];
+    renderPuzzle({ kind: "odd_one_out", round: last.round, rounds: v.rounds, prompt: "Which word doesn’t belong?" });
+    renderWords(last.words, { picked: last.choice });
+    setProgress(1, 1);
+  }
   drawStrip(rows, v.human_floor_s);
   $("#table tbody").innerHTML = rows.map((r) =>
     `<tr><td>${r.round}</td><td>${esc(r.words.join(", "))}</td><td class="${r.correct ? "ok" : "bad"}">${esc(r.choice)}</td><td>${esc(r.answer)} <span class="faint">${esc(r.category)}</span></td><td class="num">${fmt(r.latency_s)}</td><td class="num">${r.client_ms == null ? "–" : esc(r.client_ms) + " ms"}</td><td class="num">${(r.pointer_moves || 0) + (r.keys || 0)}</td></tr>`).join("");

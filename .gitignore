@@ -4,3 +4,5 @@ __pycache__/
 .playwright-mcp/
 # Human calibration runs are personal to whoever played; don't publish them.
 data/human_runs.jsonl
+# Recorded demo videos (large binaries)
+demo/
