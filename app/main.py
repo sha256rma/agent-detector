@@ -19,6 +19,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel, Field
 
 from app import detector
@@ -59,6 +60,11 @@ async def lifespan(_app):
 
 
 app = FastAPI(title="Human / Agent / Bot detector", lifespan=lifespan)
+# The app runs on the user's own machine. Answer only requests addressed to it by a local name:
+# this blocks DNS rebinding, where a malicious site points its own domain at 127.0.0.1 so its
+# requests pass same-origin checks. Set ALLOWED_HOSTS to add names if you serve it elsewhere.
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=[
+    h.strip() for h in os.environ.get("ALLOWED_HOSTS", "127.0.0.1,localhost").split(",")])
 app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
 
 

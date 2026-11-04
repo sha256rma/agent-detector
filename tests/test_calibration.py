@@ -9,7 +9,7 @@ from app import main
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "HUMAN_RUNS", tmp_path / "human_runs.jsonl")
-    return TestClient(main.app)  # no `with`: skips loading the model at startup
+    return TestClient(main.app, base_url="http://127.0.0.1:8000")  # no `with`: skips loading the model
 
 
 def play(client, latency_ok=True, events=5):
@@ -44,3 +44,8 @@ def test_instant_answers_rejected(client):
 
 def test_no_interaction_rejected(client):
     assert client.post(f"/api/session/{play(client, events=0)}/label-human").status_code == 422
+
+
+def test_dns_rebinding_host_rejected(client):
+    r = client.get("/api/status", headers={"host": "evil.example:8000"})
+    assert r.status_code == 400
