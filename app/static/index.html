@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Odd One Out</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%230071e3'/></svg>">
+<link rel="stylesheet" href="/static/style.css?v=14">
+</head>
+<body>
+<nav class="nav">
+  <div class="nav-inner">
+    <span class="brand">Odd One Out</span>
+    <span id="status" class="nav-status">Loading model…</span>
+  </div>
+</nav>
+
+<header class="hero">
+  <p class="eyebrow">Agent detection</p>
+  <h1>Human, agent, or bot?</h1>
+  <p class="lede">Each player answers a few randomized word puzzles and the question “Are you an AI agent?”, and the detector uses their accuracy, their speed, and their answer to decide whether they are a human, an LLM agent, or a software bot.</p>
+</header>
+
+<section class="guarantees-wrap" aria-labelledby="g-title">
+  <div class="card guarantees">
+    <div class="g-head">
+      <h2 id="g-title">What this detector can and can’t promise</h2>
+      <p class="g-model">We assume whoever is on the other side controls everything on their own computer. They choose the answers, they can wait as long as they like before answering, and if they run an AI model, they write its instructions. The only things we control are the puzzles and the clock on our server.</p>
+    </div>
+    <ol class="g-list">
+      <li>
+        <svg class="g-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg>
+        <h4>Scripts that don’t understand words</h4>
+        <p class="g-stmt">A script that picks words without understanding them gets about 1 in 5 puzzles right. With <span id="g1-k">6</span> puzzles, it has a <b id="g1-p">1.7%</b> chance of getting enough right to look like it understands.</p>
+        <p class="g-asm"><span>This depends on</span> every puzzle being new, and the script not having a copy of our word list.</p>
+      </li>
+      <li>
+        <svg class="g-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5M9.5 2.5h5"/></svg>
+        <h4>Answering faster than a person</h4>
+        <p class="g-stmt">Only 5% of people answer a puzzle in under <b id="g2-h">1.20 s</b>. A player who is regularly faster than that is very likely not a person. Being slower doesn’t show that someone is human, because a program can wait before it answers.</p>
+        <p class="g-asm"><span>This depends on</span> answers not being prepared in advance. Each puzzle is used once, timed on our server, and expires after 60 seconds.</p>
+      </li>
+      <li>
+        <svg class="g-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M10 9a2 2 0 1 1 2.5 1.9c-.4.2-.5.5-.5.9v.2M12 14.2v.1"/></svg>
+        <h4>Asking “Are you an AI agent?”</h4>
+        <p class="g-stmt">If an agent answers this question honestly, we label it an agent, even if it answers the puzzles slowly on purpose to look human.</p>
+        <p class="g-asm"><span>This depends on</span> the agent being allowed to tell the truth. The small model in this demo answered honestly every time we tested it, even when its instructions told it to say no.</p>
+      </li>
+      <li class="g-none">
+        <svg class="g-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17v.1"/></svg>
+        <h4>What we can’t catch</h4>
+        <p class="g-stmt">An agent whose owner makes it answer “No” and also makes it wait before every answer. It looks exactly like a slow, careful person, so we label it human.</p>
+        <p class="g-asm"><span>To catch it</span> we would need proof from the player’s device, such as hardware that confirms a real person is typing. You can try this case: choose “Stalling agent”, then “Its code ignores the model and says no”.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<main class="layout">
+  <!-- Left: controls + puzzle (sticky on desktop) ------------------------------------------ -->
+  <aside class="left">
+    <section class="card stage">
+      <div class="controls">
+        <div class="segmented" role="tablist" aria-label="Who plays">
+          <button role="tab" data-kind="human" aria-selected="true">Me</button>
+          <button role="tab" data-kind="agent">Agent</button>
+          <button role="tab" data-kind="stall">Stalling agent</button>
+          <button role="tab" data-kind="bot">Bot</button>
+        </div>
+        <p id="kind-desc" class="kind-desc"></p>
+        <div class="options">
+          <label id="bot-opt" class="field" hidden>How does the bot pick an answer?
+            <select id="bot-strategy">
+              <option value="random">It picks a random word</option>
+              <option value="longest">It picks the longest word</option>
+              <option value="alphabetical_last">It picks the last word alphabetically</option>
+              <option value="first">It always picks the first word</option>
+            </select>
+          </label>
+          <label id="lie-opt" class="field" hidden>How does it answer “Are you an AI agent?”
+            <select id="honesty">
+              <option value="honest">The model answers honestly</option>
+              <option value="prompted">The model is told to say no</option>
+              <option value="forced">Its code ignores the model and says no</option>
+            </select>
+          </label>
+          <div class="field">How many puzzles?
+            <div class="stepper">
+              <button id="r-dec" aria-label="Fewer rounds">−</button>
+              <span id="rounds">6</span>
+              <button id="r-inc" aria-label="More rounds">+</button>
+            </div>
+          </div>
+        </div>
+        <button id="start" class="pill primary">Start</button>
+      </div>
+
+      <div class="puzzle">
+        <div class="progress"><div id="progress-fill"></div></div>
+        <p id="step" class="step-label"></p>
+        <p id="prompt" class="prompt">Choose who plays, then press Start.</p>
+        <div id="words" class="words"></div>
+        <p id="hint" class="hint">The detector never sees which player you chose.</p>
+      </div>
+    </section>
+
+    <section class="explain">
+      <div><h4>Does it understand the words?</h4><p>Each puzzle shows four words from one category and one word from another, so a script that doesn’t understand meaning guesses right only one time in five.</p></div>
+      <div><h4>Is it faster than a person?</h4><p>The server times every answer with its own clock and compares the typical time to a threshold that only 5% of real people beat.</p></div>
+      <div><h4>Does it admit to being an agent?</h4><p>Before the first puzzle, every player is asked “Are you an AI agent?”, and today’s agents usually answer honestly, which catches agents that slow down on purpose.</p></div>
+    </section>
+  </aside>
+
+  <!-- Right: results ----------------------------------------------------------------------- -->
+  <div class="right">
+    <section id="placeholder" class="card placeholder">
+      <p class="eyebrow small">Verdict</p>
+      <h2>Results appear here.</h2>
+      <p class="sub">Choose a player on the left and press Start. The detector sees only the answers, how long each one took on the server’s clock, and the answer to “Are you an AI agent?”. If it decides the player is an agent, the agent’s full transcript appears below the verdict.</p>
+    </section>
+
+    <section id="result" class="card result" hidden>
+      <div class="result-head">
+        <div>
+          <p class="eyebrow small">Verdict</p>
+          <h2 id="label" class="label"></h2>
+        </div>
+        <span id="sid" class="mono faint"></span>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="stat-k">Puzzles correct</span><span id="st-acc" class="stat-v"></span></div>
+        <div class="stat"><span class="stat-k">Typical answer time</span><span id="st-med" class="stat-v"></span></div>
+        <div class="stat"><span class="stat-k">Fastest human time</span><span id="st-floor" class="stat-v"></span></div>
+        <div class="stat"><span class="stat-k">Said it was</span><span id="st-decl" class="stat-v"></span></div>
+        <div class="stat"><span class="stat-k">Mouse and key events</span><span id="st-ev" class="stat-v"></span></div>
+      </div>
+
+      <div class="grid2">
+        <div>
+          <h3>How likely is each answer?</h3>
+          <div id="bars" class="bars"></div>
+        </div>
+        <div>
+          <h3>How long did each puzzle take?</h3>
+          <svg id="strip" viewBox="0 0 520 110" role="img" aria-label="Latency per round versus the human floor"></svg>
+        </div>
+      </div>
+
+      <h3>Why did the detector decide this?</h3>
+      <ul id="reasons" class="reasons"></ul>
+
+      <details class="disclosure">
+        <summary>Show every puzzle and answer</summary>
+        <div class="table-wrap">
+          <table id="table"><thead><tr><th>#</th><th>Words</th><th>Picked</th><th>Answer</th><th>Server</th><th>Client</th><th>Events</th></tr></thead><tbody></tbody></table>
+        </div>
+      </details>
+
+      <div class="result-actions">
+        <button id="save-human" class="pill secondary" hidden>This was me. Save for calibration.</button>
+        <button id="reveal" class="link" hidden>This was the agent. Show its transcript anyway.</button>
+        <span id="save-msg" class="faint"></span>
+      </div>
+    </section>
+
+    <section id="transcript" class="card transcript" hidden>
+      <div class="result-head">
+        <div>
+          <p class="eyebrow small">Agent transcript</p>
+          <h2>What the model did</h2>
+          <p class="sub">Reported by the agent itself after the session ended. The detector never reads it.</p>
+        </div>
+        <button id="download" class="pill secondary">Download JSON</button>
+      </div>
+      <div id="agent-meta" class="chips"></div>
+      <div class="note">
+        <strong>No hidden chain of thought.</strong> This model never writes out reasoning to reach its answers. Each answer comes from scoring prompts and picking the highest. Those prompts and their per-token log-probs, shown below, are the entire computation. The rationale at the end of each round was generated <em>after</em> the answers were submitted, so it’s a justification written afterwards, not the reasoning that produced the answer.
+      </div>
+      <div id="t-status" class="t-status" hidden></div>
+      <div id="t-decl"></div>
+      <div id="t-rounds"></div>
+    </section>
+
+    <section id="history-card" class="card" hidden>
+      <h3 class="flush">History</h3>
+      <div class="table-wrap">
+        <table id="history"><thead><tr><th>Who played</th><th>Verdict</th><th>Said it was</th><th>Correct</th><th>Typical time</th><th>Bot</th><th>Agent</th><th>Human</th><th>Unsure</th></tr></thead><tbody></tbody></table>
+      </div>
+    </section>
+  </div>
+</main>
+<footer class="foot">SmolLM2-135M-Instruct · runs locally on CPU</footer>
+<script src="/static/app.js?v=14"></script>
+</body>
+</html>

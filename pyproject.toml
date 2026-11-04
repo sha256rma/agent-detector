@@ -1,0 +1,35 @@
+[project]
+name = "detector"
+version = "0.1.0"
+description = "Human / LLM-agent / software-bot detector driven by a randomized odd-one-out puzzle"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi==0.115.12",
+    "uvicorn[standard]==0.34.0",
+    "pydantic==2.10.6",
+    "httpx==0.28.1",
+    # torch 2.2.2 is the last release with macOS x86_64 wheels; it needs numpy<2.
+    "torch==2.2.2",
+    "numpy==1.26.4",
+    "transformers==4.46.3",
+]
+
+[dependency-groups]
+dev = ["pytest==8.3.4"]
+
+[tool.uv]
+package = false
+
+# On Linux, PyPI's torch wheel bundles ~2 GB of CUDA libraries. This app runs on CPU, so Linux
+# installs come from PyTorch's CPU-only index instead. macOS and Windows wheels are CPU-only already.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "sys_platform == 'linux'" }]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
