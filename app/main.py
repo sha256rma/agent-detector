@@ -158,16 +158,40 @@ def get_agent_log(sid: str):
     return {"session_id": sid, "self_reported": True, **s.agent_log}
 
 
+# Calibration sets the speed threshold, so a fake "human" run that's very fast would lower it until
+# agents pass as human. These checks keep calibration to real play on this page.
+MIN_HUMAN_ANSWER_S = 0.3  # faster than any person can read five words and click
+
+
+def _same_origin(request: Request) -> bool:
+    """Reject requests sent by other websites open in the same browser (cross-site POSTs)."""
+    origin = request.headers.get("origin")
+    if origin is None:
+        return True  # same-origin fetches from older browsers and command-line tools
+    from urllib.parse import urlparse
+    return urlparse(origin).netloc == request.headers.get("host")
+
+
 @app.post("/api/session/{sid}/label-human")
-def label_human(sid: str):
+def label_human(sid: str, request: Request):
+    if not _same_origin(request):
+        raise SessionError("calibration can only be saved from the detector page itself", 403)
     s = store.get(sid)
     if not s.done:
         raise SessionError("finish the session first", 409)
     if s.actor != "web":
         raise SessionError("only sessions played in the page can be labelled human", 422)
+    rounds = s.detector_rounds()
+    with s.lock:
+        if s.labelled_human:
+            raise SessionError("this session is already saved for calibration", 409)
+        if any(r.latency_s < MIN_HUMAN_ANSWER_S for r in rounds):
+            raise SessionError("not saved: an answer was faster than a person can read and click", 422)
+        if any(r.pointer_moves + r.keys == 0 for r in rounds):
+            raise SessionError("not saved: some answers had no mouse or keyboard activity", 422)
+        s.labelled_human = True
     rec = {"session_id": sid, "t": time.time(),
-           "latencies": [r.latency_s for r in s.detector_rounds()],
-           "correct": [r.correct for r in s.detector_rounds()]}
+           "latencies": [r.latency_s for r in rounds], "correct": [r.correct for r in rounds]}
     HUMAN_RUNS.parent.mkdir(exist_ok=True)
     with HUMAN_RUNS.open("a") as f:
         f.write(json.dumps(rec) + "\n")

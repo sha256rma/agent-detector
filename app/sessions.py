@@ -54,6 +54,7 @@ class Session:
     agent_log: dict | None = None
     # The self-declaration challenge served before round 1. Not a scored round.
     declaration: RoundRecord | None = None
+    labelled_human: bool = False  # saved for calibration at most once
     ask_declaration: bool = True
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
