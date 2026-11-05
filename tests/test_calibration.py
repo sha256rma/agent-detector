@@ -49,3 +49,14 @@ def test_no_interaction_rejected(client):
 def test_dns_rebinding_host_rejected(client):
     r = client.get("/api/status", headers={"host": "evil.example:8000"})
     assert r.status_code == 400
+
+
+def test_hosted_version_rejects_visitor_calibration(client, monkeypatch):
+    # On a shared (public) deployment, visitors can't move the threshold without the operator secret.
+    monkeypatch.setattr(main.store, "shared", True)
+    monkeypatch.setattr(main, "CALIBRATION_TOKEN", None)
+    sid = play(client)
+    assert client.post(f"/api/session/{sid}/label-human").status_code == 403
+    monkeypatch.setattr(main, "CALIBRATION_TOKEN", "s3cret")
+    r = client.post(f"/api/session/{sid}/label-human", headers={"x-calibration-token": "wrong"})
+    assert r.status_code == 403

@@ -136,6 +136,7 @@ def status():
     floor, n = load_human_floor()
     extra = {"store_rtt_ms": store.rtt_ms()} if store.shared else {}
     return {**state, **extra, "human_floor_s": floor, "human_samples": n,
+            "calibration_open": calibration_open(),
             "floor_calibrated": n >= 20, "default_rounds": DEFAULT_ROUNDS}
 
 
@@ -204,6 +205,13 @@ def get_agent_log(sid: str):
 # Calibration sets the speed threshold, so a fake "human" run that's very fast would lower it until
 # agents pass as human. These checks keep calibration to real play on this page.
 MIN_HUMAN_ANSWER_S = 0.3  # faster than any person can read five words and click
+# On a public deployment anyone could script "human" runs with fake mouse events and pull the
+# threshold down until agents pass. There, saving is off unless the request carries this secret.
+CALIBRATION_TOKEN = os.environ.get("CALIBRATION_TOKEN")
+
+
+def calibration_open() -> bool:
+    return not store.shared or bool(CALIBRATION_TOKEN)
 
 
 def _same_origin(request: Request) -> bool:
@@ -217,6 +225,11 @@ def _same_origin(request: Request) -> bool:
 
 @app.post("/api/session/{sid}/label-human")
 def label_human(sid: str, request: Request):
+    if store.shared:
+        import hmac
+        given = request.headers.get("x-calibration-token", "")
+        if not CALIBRATION_TOKEN or not hmac.compare_digest(given, CALIBRATION_TOKEN):
+            raise SessionError("saving calibration is turned off on the hosted version", 403)
     if not _same_origin(request):
         raise SessionError("calibration can only be saved from the detector page itself", 403)
     s = store.get(sid)

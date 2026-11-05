@@ -196,7 +196,8 @@ async function showVerdict(sid, who) {
   drawStrip(rows, v.human_floor_s);
   $("#table tbody").innerHTML = rows.map((r) =>
     `<tr><td>${r.round}</td><td>${esc(r.words.join(", "))}</td><td class="${r.correct ? "ok" : "bad"}">${esc(r.choice)}</td><td>${esc(r.answer)} <span class="faint">${esc(r.category)}</span></td><td class="num">${fmt(r.latency_s)}</td><td class="num">${r.client_ms == null ? "–" : esc(r.client_ms) + " ms"}</td><td class="num">${(r.pointer_moves || 0) + (r.keys || 0)}</td></tr>`).join("");
-  $("#save-human").hidden = who !== "human";
+  // The hosted version doesn't accept calibration from visitors (see label_human in app/main.py).
+  $("#save-human").hidden = who !== "human" || !(status?.calibration_open && !status?.agent_info?.on_demand);
   $("#save-msg").textContent = "";
   const launchedAgent = who === "agent" || who === "stall";
   $("#reveal").hidden = !(launchedAgent && v.label !== "llm_agent");
