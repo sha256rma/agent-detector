@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import random
 import time
+from contextlib import nullcontext
 
 import httpx
 
@@ -24,10 +25,12 @@ STRATEGIES = {
 
 
 def play(base: str, session_id: str | None = None, strategy: str = "random",
-         seed: int | None = None, rounds: int | None = None) -> str:
+         seed: int | None = None, rounds: int | None = None,
+         client: httpx.Client | None = None) -> str:
     rng = random.Random(seed)
     pick = STRATEGIES[strategy]
-    with httpx.Client(base_url=base, timeout=30) as http:
+    # `client` lets a host pass an in-process client for this same API (see /drive in app/main.py).
+    with nullcontext(client) if client is not None else httpx.Client(base_url=base, timeout=30) as http:
         if session_id is None:
             body = {"rounds": rounds} if rounds else {}
             session_id = http.post("/api/session", json=body).json()["session_id"]

@@ -141,12 +141,17 @@ async function playMachine(kind) {
   const path = kind === "bot" ? "/api/run/bot" : "/api/run/agent";
   const body = kind === "bot" ? { strategy: $("#bot-strategy").value, rounds }
     : { stall: kind === "stall", honesty: $("#honesty").value, rounds };
-  const { session_id } = await api(path, { method: "POST", body: JSON.stringify(body) });
+  const { session_id, drive } = await api(path, { method: "POST", body: JSON.stringify(body) });
+  // On the hosted version the run happens inside this request; locally it has already started.
+  let driveError = null;
+  if (drive) api(`/api/session/${session_id}/drive`, { method: "POST" }).catch((e) => { driveError = e; });
+  if (drive && kind !== "bot") $("#prompt").textContent = "Starting the agent. If the server has been idle, the first run can take up to a minute while the model loads.";
   $("#hint").textContent = `The ${KINDS[kind].who.toLowerCase()} is playing through the same public API that this page uses.`;
   let last = null;
   for (;;) {
     const s = await api(`/api/session/${session_id}/live`);
     if (s.actor.includes("error")) throw new Error(s.actor);
+    if (driveError && !s.done) throw driveError;
     setProgress(s.answered, s.rounds);
     if (s.current && s.current.puzzle_id !== last) {
       last = s.current.puzzle_id;
@@ -154,7 +159,7 @@ async function playMachine(kind) {
       renderWords(s.current.options);
     }
     if (s.done) break;
-    await sleep(40);
+    await sleep(drive ? 150 : 40);
   }
   return session_id;
 }

@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import random
 import time
+from contextlib import nullcontext
 
 import httpx
 
@@ -34,14 +35,16 @@ HONESTY = ("honest", "prompted", "forced")
 
 
 def play(base: str, session_id: str | None = None, stall: bool = False,
-         rounds: int | None = None, explain: bool = True, honesty: str = "honest") -> str:
+         rounds: int | None = None, explain: bool = True, honesty: str = "honest",
+         client: httpx.Client | None = None) -> str:
     if honesty not in HONESTY:
         raise ValueError(f"honesty must be one of {HONESTY}")
     agent = get_agent()
     log = {"agent": {"model": agent.model_id, "params": agent.n_params, "device": "cpu",
                      "method": None, "stall": stall, "honesty": honesty, "client": "clients/agent_client.py"},
            "status": "playing", "declaration": None, "rounds": []}
-    with httpx.Client(base_url=base, timeout=60) as http:
+    # `client` lets a host pass an in-process client for this same API (see /drive in app/main.py).
+    with nullcontext(client) if client is not None else httpx.Client(base_url=base, timeout=60) as http:
         if session_id is None:
             body = {"rounds": rounds} if rounds else {}
             session_id = http.post("/api/session", json=body).json()["session_id"]

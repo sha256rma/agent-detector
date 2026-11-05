@@ -50,6 +50,23 @@ through the same public API the page uses. You can also run them from a terminal
 `uv run python -m clients.agent_client [--stall] [--honesty forced]`,
 `uv run python -m clients.bot_client --strategy longest`. Tests: `uv sync && uv run pytest`.
 
+## Hosting on Vercel
+
+The same code runs on Vercel. Because Vercel doesn't keep one server process running, two things
+change when the `VERCEL` environment variable is set:
+
+- Sessions and human calibration are stored in Upstash Redis instead of in memory. Set
+  `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` (or Vercel's `KV_REST_API_URL` and
+  `KV_REST_API_TOKEN`). Put the function in the same region as the database (`regions` in
+  `vercel.json`), because every database round trip after a puzzle is shown counts toward the
+  player's answer time.
+- Agent and bot runs happen inside a request to `POST /api/session/{id}/drive`, which the page
+  calls, instead of in a background thread. The model downloads to `/tmp` the first time an
+  instance needs it, so the first agent run after the site has been idle takes up to a minute.
+
+The bundle (mostly torch) is about 850 MB, so the project needs `VERCEL_SUPPORT_LARGE_FUNCTIONS=1`.
+Then run `vercel deploy --prod`.
+
 ## Security guarantees
 
 The adversary 𝒜 controls the client: its answers, its timing (it can always wait), its telemetry,

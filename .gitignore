@@ -6,3 +6,5 @@ __pycache__/
 data/human_runs.jsonl
 # Recorded demo videos (large binaries)
 demo/
+.vercel
+.env*

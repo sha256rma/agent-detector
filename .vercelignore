@@ -1,0 +1,7 @@
+.venv
+.pytest_cache
+.playwright-mcp
+demo
+tests
+tools
+data/human_runs.jsonl
